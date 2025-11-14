@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Gridfield Hazard Snapshots</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: #020617;
+        color: #e2e8f0;
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+      }
+      main {
+        width: min(720px, 100%);
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 28px;
+        padding: 40px;
+        box-shadow: 0 25px 60px rgba(2, 6, 23, 0.7);
+      }
+      h1 {
+        font-weight: 600;
+        font-size: clamp(1.8rem, 4vw, 2.8rem);
+        margin-bottom: 0.4rem;
+      }
+      p {
+        color: #94a3b8;
+        line-height: 1.6;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+        margin: 1.6rem 0 0;
+      }
+      li + li {
+        margin-top: 0.8rem;
+      }
+      a {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 18px;
+        border-radius: 999px;
+        background: rgba(56, 189, 248, 0.15);
+        border: 1px solid rgba(56, 189, 248, 0.4);
+        color: #67e8f9;
+        text-decoration: none;
+        font-weight: 600;
+        transition: background 0.2s ease, border 0.2s ease;
+      }
+      a span {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        color: #bae6fd;
+      }
+      a:hover {
+        background: rgba(56, 189, 248, 0.25);
+        border-color: rgba(56, 189, 248, 0.8);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Hazard Module Snapshots</h1>
+      <p>
+        These static snapshots are rebuilt from the Gridfield hazard datasets with
+        <code>src/pipeline/build_hazard_module_assets.py</code>. Use the links below to browse the interactive map
+        overlay or view the latest single-location profile baked into this repository.
+      </p>
+      <ul>
+        <li>
+          <a href="./hazard_map.html">
+            <span>Live map</span>
+            Germany-wide hazard overlays
+          </a>
+        </li>
+        <li>
+          <a href="./hazard_location.html">
+            <span>Latest snapshot</span>
+            Wind & wildfire profile for the configured site
+          </a>
+        </li>
+      </ul>
+    </main>
+  </body>
+</html>
