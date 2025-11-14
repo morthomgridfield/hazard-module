@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='utf-8' />
+  <title>Gridfield · Hazard Layers</title>
+  <meta name='viewport' content='width=device-width, initial-scale=1' />
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #020617; color: #e2e8f0; }
+    header { padding: 36px 48px; max-width: 1200px; margin: 0 auto; }
+    h1 { font-size: clamp(2.4rem, 4vw, 3.2rem); margin-bottom: 0.4rem; }
+    p.lead { font-size: 1.05rem; color: #cbd5f5; max-width: 760px; }
+    #map { width: 100%; height: 72vh; border-radius: 28px; box-shadow: 0 40px 90px rgba(0,0,0,0.55); border: 1px solid rgba(56,189,248,0.25); }
+    .map-wrap { position: relative; padding: 0 48px 56px; max-width: 1200px; margin: 0 auto; }
+    .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+    .chip { border-radius: 999px; border: 1px solid rgba(148,163,184,0.35); padding: 6px 16px; background: rgba(8,17,34,0.8); font-size: 0.9rem; }
+    #info-card { position: absolute; right: 64px; top: 40px; width: 320px; border-radius: 20px; background: rgba(3,7,18,0.95); border: 1px solid rgba(148,163,184,0.25); padding: 18px 22px; display: none; box-shadow: 0 25px 60px rgba(0,0,0,0.55); }
+    #info-card.visible { display: block; }
+    #info-card h3 { margin: 6px 0 4px; }
+    #info-card p.meta { margin: 0 0 12px; color: #94a3b8; font-size: 0.9rem; }
+    #info-card ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; }
+    #info-card ul li { border-top: 1px solid rgba(148,163,184,0.15); padding-top: 6px; }
+    #info-card ul li:first-child { border-top: none; padding-top: 0; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Hazard overlays for siting</h1>
+  <p class='lead'>Interactive layers for Germany-wide wind climate stations and UBA wildfire proxies. Paste an unrestricted Google Maps key into <code>GOOGLE_MAPS_KEY</code> inside the script to render the map.</p>
+</header>
+<div class='map-wrap'>
+  <div id='map'></div>
+  <div id='info-card'>
+    <p class='meta'>Layer</p>
+    <h3 id='info-title'>Hover a marker</h3>
+    <p class='meta' id='info-subtitle'></p>
+    <ul id='info-list'></ul>
+  </div>
+  <div class='legend'>
+    <div class='chip'>◉ Wind station (size by mean speed)</div>
+    <div class='chip'>◉ Wildfire proxy (color by risk)</div>
+  </div>
+</div>
+<script>
+  const GOOGLE_MAPS_KEY = 'local-dev';
+</script>
+<script src="hazard_data.js"></script>
+<script>
+  function initHazardMap() {
+    const map = new google.maps.Map(document.getElementById('map'), {
+      center: { lat: 51.2, lng: 10 },
+      zoom: 6,
+      styles: [
+        { elementType: 'geometry', stylers: [{ color: '#040c1d' }] },
+        { elementType: 'labels.text.fill', stylers: [{ color: '#9fb8e4' }] },
+        { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+        { featureType: 'road', stylers: [{ color: '#182033' }] },
+        { featureType: 'water', stylers: [{ color: '#081326' }] },
+      ],
+      streetViewControl: false,
+      mapTypeControl: false,
+    });
+
+    const infoCard = document.getElementById('info-card');
+    const titleEl = document.getElementById('info-title');
+    const subtitleEl = document.getElementById('info-subtitle');
+    const listEl = document.getElementById('info-list');
+
+    const renderCard = (title, subtitle, rows) => {
+      titleEl.textContent = title;
+      subtitleEl.textContent = subtitle;
+      listEl.innerHTML = '';
+      rows.forEach(([label, value]) => {
+        const li = document.createElement('li');
+        li.innerHTML = `<strong>${label}</strong><br/>${value}`;
+        listEl.appendChild(li);
+      });
+      infoCard.classList.add('visible');
+    };
+
+    (window.HAZARD_DATA.wind || []).forEach((station) => {
+      const marker = new google.maps.Circle({
+        strokeColor: 'rgba(99,102,241,0.4)',
+        strokeOpacity: 0.7,
+        strokeWeight: 1,
+        fillColor: 'rgba(99,102,241,0.25)',
+        fillOpacity: 0.4,
+        center: { lat: station.lat, lng: station.lng },
+        radius: 5000 + station.mean * 400,
+        map,
+      });
+      marker.addListener('mouseover', () => {
+        renderCard(
+          station.stationName,
+          `Wind climate · ${station.span}`,
+          [
+            ['Mean', `${station.mean.toFixed(1)} m/s`],
+            ['P95', `${station.p95.toFixed(1)} m/s`],
+            ['Max', `${station.max.toFixed(1)} m/s`],
+          ],
+        );
+      });
+    });
+
+    const riskColors = {
+      1: '#22c55e',
+      2: '#eab308',
+      3: '#f97316',
+      4: '#ef4444',
+      5: '#991b1b',
+    };
+
+    (window.HAZARD_DATA.wildfire || []).forEach((cell) => {
+      const marker = new google.maps.Circle({
+        strokeColor: riskColors[cell.riskLevel] || '#ef4444',
+        strokeOpacity: 0.9,
+        strokeWeight: 1,
+        fillColor: riskColors[cell.riskLevel] || '#ef4444',
+        fillOpacity: 0.35,
+        center: { lat: cell.lat, lng: cell.lng },
+        radius: 12000,
+        map,
+      });
+      marker.addListener('mouseover', () => {
+        renderCard(
+          `Wildfire proxy (risk ${cell.riskLevel})`,
+          cell.riskLabel || 'Risk zone',
+          [
+            ['Area (approx.)', `${(cell.areaSqM / 1_000_000).toFixed(1)} km²`],
+            ['Lat/Lng', `${cell.lat.toFixed(3)}, ${cell.lng.toFixed(3)}`],
+          ],
+        );
+      });
+    });
+  }
+
+  const script = document.createElement('script');
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&callback=initHazardMap`;
+  script.async = true;
+  script.defer = true;
+  document.body.appendChild(script);
+</script>
+</body>
+</html>

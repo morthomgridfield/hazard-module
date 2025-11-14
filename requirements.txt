@@ -1,0 +1,6 @@
+pandas>=2.3
+pyproj>=3.6
+pyshp>=3.0
+requests>=2.32
+
+pytest>=8.0

@@ -1,0 +1,601 @@
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Gridfield · Hazard Snapshot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: radial-gradient(circle at top, #03111f, #02060f 55%); color: #e2e8f0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .shell { width: min(1320px, 100%); margin: 0 auto; padding: 48px 32px 72px; display: flex; flex-direction: column; gap: 36px; }
+    .intro { display: flex; flex-direction: column; gap: 10px; }
+    .pill { display: inline-flex; align-items: center; gap: 8px; padding: 4px 14px; border-radius: 999px; border: 1px solid rgba(94,234,212,0.8); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.1em; color: #5eead4; }
+    .pill.subtle { border-color: rgba(148,163,184,0.25); color: #cbd5f5; }
+    h1 { margin: 0; font-size: clamp(2.2rem, 4vw, 3.4rem); font-weight: 600; }
+    .location-meta { color: #94a3b8; font-size: 0.96rem; margin: 0; }
+    .columns { display: flex; flex-direction: column; gap: 32px; width: 100%; }
+    .viz-column, .info-column { display: flex; flex-direction: column; gap: 28px; width: 100%; }
+    .viz-card, .block { position: relative; width: 100%; border-radius: 32px; padding: 32px; background: linear-gradient(145deg, rgba(3,7,18,0.95), rgba(8,47,73,0.65)); border: 1px solid rgba(99,102,241,0.25); box-shadow: 0 30px 90px rgba(2,6,23,0.65); }
+    .viz-card-head { display: none; }
+    canvas { width: 100%; height: auto; display: block; border-radius: 22px; background: #020617; border: 1px solid rgba(56,189,248,0.25); }
+    .viz-caption { margin: 10px 0 0; color: #cbd5f5; font-size: 0.85rem; }
+    .bands { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 16px; margin-top: 28px; }
+    .band { padding: 14px 16px; border-radius: 20px; background: rgba(8,19,38,0.9); border: 1px solid rgba(99,102,241,0.25); display: flex; flex-direction: column; gap: 10px; position: relative; transition: transform 0.2s ease, border-color 0.2s ease; }
+    .band:hover { transform: translateY(-4px); border-color: rgba(94,234,212,0.5); }
+    .band.active { border-color: rgba(94,234,212,0.8); box-shadow: 0 0 20px rgba(94,234,212,0.2); }
+    .band-label { font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: #cbd5f5; }
+    .band-bar { height: 8px; border-radius: 999px; background: rgba(148,163,184,0.2); overflow: hidden; }
+    .band-bar span { display: block; height: 100%; border-radius: inherit; }
+    .distance-track { margin-top: 18px; height: 12px; border-radius: 999px; background: rgba(148,163,184,0.25); position: relative; }
+    .distance-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: inherit; background: linear-gradient(90deg, #5eead4, #14b8a6); }
+    .distance-meta { margin-top: 8px; display: flex; justify-content: space-between; font-size: 0.85rem; color: #94a3b8; }
+    .windzone-bars { display: flex; flex-direction: column; gap: 12px; margin-top: 28px; }
+    .windzone-bar { border-radius: 18px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; background: rgba(8,19,38,0.9); border: 1px solid rgba(99,102,241,0.25); transition: border-color 0.2s ease, transform 0.2s ease; }
+    .windzone-bar:hover { border-color: rgba(94,234,212,0.4); transform: translateX(4px); }
+    .windzone-bar.active { border-color: rgba(94,234,212,0.8); box-shadow: 0 0 14px rgba(94,234,212,0.2); }
+    .wind-section { display: flex; flex-wrap: wrap; gap: 24px; width: 100%; }
+    .windrose-wrap { flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 8px; }
+    .wind-rose { position: relative; aspect-ratio: 1/1; border-radius: 32px; background: radial-gradient(circle at center, rgba(2,6,23,1) 50%, rgba(1,3,8,1) 100%); overflow: hidden; box-shadow: inset 0 0 35px rgba(2,6,23,.9); }
+    .wind-rose svg { width: 100%; height: 100%; }
+    .wind-rose::before,
+    .wind-rose::after { content: ''; position: absolute; inset: 16px; border: 1px solid rgba(148,163,184,.15); border-radius: 50%; }
+    .wind-rose::after { inset: 48px; box-shadow: inset 0 0 0 1px rgba(15,23,42,.6); }
+    .rose-label { position: absolute; font-weight: 600; color: rgba(248,250,252,.8); font-size: .8rem; letter-spacing: .1em; }
+    .rose-tooltip { position: absolute; pointer-events: none; background: rgba(2,6,23,0.95); border: 1px solid rgba(94,234,212,0.4); padding: 6px 10px; border-radius: 12px; font-size: 0.75rem; color: #f8fafc; transform: translate(-50%, -120%); opacity: 0; transition: opacity 0.1s ease; }
+    .rose-label.north { top: 12px; left: 50%; transform: translateX(-50%); }
+    .rose-label.south { bottom: 12px; left: 50%; transform: translateX(-50%); }
+    .rose-label.east { right: 12px; top: 50%; transform: translateY(-50%); }
+    .rose-label.west { left: 12px; top: 50%; transform: translateY(-50%); }
+    .wind-stacked-chart { flex: 1; min-width: 320px; border-radius: 24px; padding: 16px 24px 24px; background: rgba(8,19,38,.9); border: 1px solid rgba(99,102,241,.25); display: flex; flex-direction: column; gap: 12px; }
+    .wind-profile-meta { align-self: flex-end; font-size: 0.78rem; color: #cbd5f5; border: 1px solid rgba(94,234,212,0.35); border-radius: 999px; padding: 6px 12px; background: rgba(2,6,23,0.6); }
+    .wind-stacked-body { display: flex; gap: 24px; align-items: flex-end; justify-content: center; }
+    .stacked-axis { display: flex; flex-direction: column; justify-content: space-between; height: 200px; font-size: 0.75rem; color: #94a3b8; text-align: right; padding-right: 8px; }
+    .stacked-bars { position: relative; flex: none; display: flex; gap: 10px; align-items: flex-end; height: 200px; padding-bottom: 24px; border-bottom: 1px solid rgba(148,163,184,.2); width: min(720px, 100%); justify-content: space-between; margin: 0 auto; }
+    .stacked-bars::before,
+    .stacked-bars::after { content: ''; position: absolute; left: 0; right: 0; border-top: 1px dashed rgba(148,163,184,.12); }
+    .stacked-bars::before { top: 33%; }
+    .stacked-bars::after { top: 66%; }
+    .stacked-bar { flex: 1 1 0; min-width: 28px; display: flex; flex-direction: column; gap: 6px; transition: transform 0.2s ease; }
+    .stacked-bar:hover { transform: translateY(-4px); }
+    .stacked-bar:hover .stacked-track { border-color: rgba(94,234,212,0.4); }
+    .stacked-track { flex: 1; border-radius: 8px; border: 1px solid rgba(99,102,241,.25); background: rgba(2,6,23,.9); height: 200px; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
+    .stacked-track span { width: 100%; display: block; }
+    .stacked-label { font-size: 0.75rem; letter-spacing: .08em; color: #a5b4fc; text-align: center; text-transform: uppercase; }
+    .wind-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.85rem; color: #cbd5f5; }
+    .wind-legend.rose { justify-content: space-between; font-size: 0.75rem; color: #94a3b8; margin-top: 6px; }
+    .wind-legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .wind-legend i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    .block .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
+    .card { border-radius: 24px; padding: 22px; background: rgba(2,6,23,0.95); border: 1px solid rgba(94,234,212,0.25); display: flex; flex-direction: column; gap: 10px; }
+    .summary-card { border-radius: 24px; padding: 0; background: rgba(2,6,23,0.9); border: 1px solid rgba(99,102,241,0.35); box-shadow: inset 0 0 12px rgba(8,15,28,0.8); display: flex; overflow: hidden; }
+    .summary-main { flex: 1; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+    .summary-guidance { flex: 1; min-width: 240px; padding: 24px; border-left: 1px solid rgba(148,163,184,0.25); background: rgba(3,10,25,0.9); display: flex; flex-direction: column; gap: 10px; }
+    .summary-guidance p { margin: 0; font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; color: #bae6fd; }
+    .summary-card h4 { margin: 0; font-size: 0.82rem; letter-spacing: 0.12em; text-transform: uppercase; color: #bae6fd; }
+    .summary-card .value { font-size: 2.2rem; margin: 0; font-weight: 600; }
+    .summary-card .value + p { margin: 0; color: #94a3b8; font-size: 0.85rem; }
+    .summary-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 18px; color: #cbd5f5; font-size: 0.85rem; }
+    .summary-list li { opacity: 0.8; }
+    .guidance-list { margin: 0; padding-left: 18px; color: #cbd5f5; font-size: 0.8rem; display: flex; flex-direction: column; gap: 6px; line-height: 1.35; }
+    .guidance-list li { line-height: 1.4; }
+    .seismic-bars { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+    .seismic-bar { display: flex; align-items: center; gap: 12px; font-size: 0.85rem; padding: 6px 0; transition: transform 0.2s ease; }
+    .seismic-bar:hover { transform: translateX(6px); }
+    .seismic-bar:hover .seismic-track { border-color: rgba(148,163,184,0.6); }
+    .seismic-bar span { font-weight: 600; text-transform: uppercase; width: 80px; color: #cbd5f5; }
+    .seismic-track { flex: 1; height: 18px; border-radius: 999px; background: rgba(15,23,42,0.8); border: 1px solid rgba(99,102,241,0.25); overflow: hidden; }
+    .seismic-track i { display: block; height: 100%; background: linear-gradient(90deg, #a78bfa, #6366f1); }
+    .seismic-risk { margin: 18px 0 6px; font-weight: 600; color: #a5b4fc; font-size: 1.8rem; }
+    .seismic-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 0; }
+    .seismic-kpi { border-radius: 18px; border: 1px solid rgba(99,102,241,0.3); padding: 14px 18px; background: rgba(4,10,25,0.9); display: flex; flex-direction: column; gap: 4px; }
+    .seismic-kpi span.label { font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: #94a3b8; }
+    .seismic-kpi span.value { font-size: 1.4rem; font-weight: 600; color: #e2e8f0; }
+    .seismic-context { margin-top: 14px; font-size: 0.9rem; color: #cbd5f5; }
+    .seismic-footnote { margin-top: 8px; font-size: 0.8rem; color: #94a3b8; }
+    .card h3 { margin: 0; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.1em; color: #bae6fd; }
+    .value { font-size: 2.2rem; margin: 0; font-weight: 600; }
+    .sub { color: #94a3b8; font-size: 0.9rem; margin: 0; }
+    .list { margin: 0; padding-left: 20px; color: #cbd5f5; display: flex; flex-direction: column; gap: 8px; }
+    .list li { line-height: 1.4; }
+    .note { color: #cbd5f5; font-size: 0.95rem; margin-top: 8px; }
+    .narrative { display: flex; flex-direction: column; gap: 18px; }
+    .narrative h4 { margin: 0 0 4px; font-size: 1rem; color: #bae6fd; text-transform: uppercase; letter-spacing: 0.08em; }
+    @media (max-width: 1100px) {
+      .shell { padding: 40px 20px 64px; }
+      .columns { gap: 24px; }
+      .wind-section { flex-direction: column; }
+      .summary-card { flex-direction: column; }
+      .summary-guidance { width: 100%; border-left: none; border-top: 1px solid rgba(148,163,184,0.25); }
+    }
+  </style>
+</head>
+<body>
+  <section class="shell">
+    <div class="intro">
+      <p class="pill">gridfield hazard module</p>
+      <h1 id="location-title">Hazard snapshot</h1>
+      <p class="location-meta" id="location-meta">Awaiting coordinates…</p>
+    </div>
+
+    <div class="columns">
+      <div class="viz-column">
+        <div class="viz-card" id="wildfire-visual">
+          <div class="viz-card-head">
+            <p class="pill subtle">Natural environment</p>
+            <h3>Wildfire exposure</h3>
+          </div>
+          <div class="summary-card" id="wildfire-summary">
+            <div class="summary-main">
+              <h4>Wildfire risk</h4>
+              <p class="value" id="wildfire-summary-level">–</p>
+              <p id="wildfire-summary-label"></p>
+              <ul class="summary-list">
+                <li id="wildfire-summary-distance"></li>
+                <li id="wildfire-summary-area"></li>
+              </ul>
+            </div>
+            <div class="summary-guidance">
+              <p>Guidance</p>
+              <ul class="guidance-list" id="wildfire-summary-guidance"></ul>
+            </div>
+          </div>
+          <div class="bands" id="wildfire-bands"></div>
+          <div class="distance-track" id="wildfire-distance-track">
+            <div class="distance-fill" id="wildfire-distance-bar"></div>
+          </div>
+          <div class="distance-meta">
+            <span>Centroid distance</span>
+            <span id="wildfire-distance-label">– km</span>
+          </div>
+        </div>
+
+        <div class="viz-card" id="windzone-visual">
+          <div class="viz-card-head">
+            <p class="pill subtle">Wind zones & severe weather</p>
+            <h3 id="windzone-title">Wind zone</h3>
+          </div>
+          <div class="summary-card" id="wind-summary">
+            <div class="summary-main">
+              <h4>Wind exposure</h4>
+              <p class="value" id="wind-summary-mean">–</p>
+              <p id="wind-summary-station"></p>
+              <ul class="summary-list">
+                <li id="wind-summary-distance"></li>
+                <li id="wind-summary-p95"></li>
+                <li id="wind-summary-max"></li>
+                <li id="wind-summary-zone"></li>
+                <li id="wind-summary-flow"></li>
+              </ul>
+            </div>
+            <div class="summary-guidance">
+              <p>Guidance</p>
+              <ul class="guidance-list" id="wind-summary-guidance"></ul>
+            </div>
+          </div>
+          <div class="windzone-bars" id="windzone-bars"></div>
+        </div>
+
+        <div class="viz-card" id="windrose-visual">
+          <div class="viz-card-head">
+            <p class="pill subtle">Wind rose & seasonal speeds</p>
+            <h3>Wind profile</h3>
+          </div>
+            <div class="wind-section">
+              <div class="windrose-wrap">
+                <div class="wind-rose">
+                  <span class="rose-label north">N</span>
+                  <span class="rose-label east">E</span>
+                  <span class="rose-label south">S</span>
+                  <span class="rose-label west">W</span>
+                  <svg id="wind-rose-svg" viewBox="0 0 200 200"></svg>
+                  <div class="wind-legend rose" id="wind-rose-legend"></div>
+                  <div class="rose-tooltip" id="rose-tooltip"></div>
+                </div>
+              </div>
+              <div class="wind-stacked-chart">
+                <div class="wind-profile-meta" id="wind-profile-meta"></div>
+                <div class="wind-stacked-body">
+                  <div class="stacked-axis" id="wind-stacked-axis"></div>
+                  <div class="stacked-bars" id="wind-stacked-bars"></div>
+                </div>
+                <div class="wind-legend">
+                  <span><i style="background:#bbf7d0;"></i>Calm 0–3 m/s</span>
+                  <span><i style="background:#4ade80;"></i>Breeze 3–6 m/s</span>
+                  <span><i style="background:#16a34a;"></i>Fresh 6–9 m/s</span>
+                  <span><i style="background:#facc15;"></i>Gale 9+ m/s</span>
+                </div>
+              </div>
+            </div>
+        </div>
+      </div>
+
+      <div class="info-column">
+        <div class="viz-card seismic-card" id="seismic-card">
+          <div class="seismic-stat-grid">
+            <div class="seismic-kpi">
+              <span class="label">Events ≤250 km</span>
+              <span class="value" id="seismic-nearby">–</span>
+            </div>
+            <div class="seismic-kpi">
+              <span class="label">Events in last decade</span>
+              <span class="value" id="seismic-recent">–</span>
+            </div>
+            <div class="seismic-kpi">
+              <span class="label">Nearest event</span>
+              <span class="value" id="seismic-nearest-summary">–</span>
+            </div>
+          </div>
+          <p class="seismic-risk" id="seismic-risk">Low seismic exposure</p>
+          <div class="seismic-bars" id="seismic-bars"></div>
+          <p class="seismic-context" id="seismic-context"></p>
+          <p class="seismic-footnote" id="seismic-nearest-note">Awaiting seismic catalogue…</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="hazard_data.js"></script>
+  <script>
+    const data = window.HAZARD_DATA || {};
+    const summary = data.locationSummary || {};
+    const narratives = summary.narratives || {};
+    const WILDFIRE_LEVEL_META = {
+      1: { label: 'Minimal exposure', desc: 'Sparse fuels; routine vegetation management is sufficient.' },
+      2: { label: 'Managed exposure', desc: 'Fuels can ignite during heatwaves; maintain defensible space.' },
+      3: { label: 'High exposure', desc: 'Frequent stress on vegetation; ensure water supply and firebreaks.' },
+      4: { label: 'Very high exposure', desc: 'Expect more frequent burn bans; pre-stage response resources.' },
+      5: { label: 'Extreme exposure', desc: 'Continuous monitoring and perimeter firebreaks required.' },
+    };
+
+    const locationTitle = document.getElementById('location-title');
+    const locationMeta = document.getElementById('location-meta');
+    if (summary.label) {
+      locationTitle.textContent = summary.label;
+    }
+    if (summary.latitude && summary.longitude) {
+      locationMeta.textContent = `Lat ${summary.latitude.toFixed(4)} · Lon ${summary.longitude.toFixed(4)}`;
+    }
+
+    function setText(id, value) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = value;
+    }
+
+    function renderGuidanceList(listId, lines) {
+      const list = document.getElementById(listId);
+      if (!list) return;
+      list.innerHTML = '';
+      const entries = Array.isArray(lines) ? lines.filter(Boolean) : [];
+      if (!entries.length) {
+        const li = document.createElement('li');
+        li.textContent = 'No additional guidance available.';
+        li.style.opacity = '0.7';
+        list.appendChild(li);
+        return;
+      }
+      entries.forEach((line) => {
+        const li = document.createElement('li');
+        li.textContent = line;
+        list.appendChild(li);
+      });
+    }
+
+    function setElementTooltip(id, text) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.title = text || '';
+    }
+
+    function translateWildfireLabel(label) {
+      if (!label) return 'Wildfire risk zone';
+      const normalized = label.toLowerCase();
+      if (normalized.includes('sehr') && normalized.includes('hoch')) return 'Very high wildfire risk zone';
+      if (normalized.includes('hoch')) return 'High wildfire risk zone';
+      if (normalized.includes('mittel')) return 'Moderate wildfire risk zone';
+      if (normalized.includes('gering')) return 'Low wildfire risk zone';
+      return label;
+    }
+
+    function renderWildfireChart(wildfire) {
+      const displayLabel = translateWildfireLabel(wildfire.riskLabel);
+      const bandsRoot = document.getElementById('wildfire-bands');
+      bandsRoot.innerHTML = '';
+      const colors = ['#22c55e', '#84cc16', '#facc15', '#f97316', '#ef4444'];
+      for (let level = 1; level <= 5; level += 1) {
+        const band = document.createElement('div');
+        band.className = 'band' + (level === wildfire.riskLevel ? ' active' : '');
+        const meta = WILDFIRE_LEVEL_META[level] || {};
+        const tooltipText = level === wildfire.riskLevel ? `${displayLabel} · ${meta.desc || ''}` : `${meta.label || `Level ${level}`} · ${meta.desc || ''}`;
+        band.title = tooltipText.trim();
+        const label = document.createElement('div');
+        label.className = 'band-label';
+        label.textContent = `Level ${level}`;
+        const bar = document.createElement('div');
+        bar.className = 'band-bar';
+        const fill = document.createElement('span');
+        fill.style.width = `${(level / 5) * 100}%`;
+        fill.style.background = colors[level - 1];
+        bar.appendChild(fill);
+        const desc = document.createElement('p');
+        desc.className = 'note';
+        desc.textContent = level === wildfire.riskLevel ? displayLabel : meta.label || 'Reference band';
+        band.appendChild(label);
+        band.appendChild(bar);
+        band.appendChild(desc);
+        bandsRoot.appendChild(band);
+      }
+
+      const distance = wildfire.distanceKm || 0;
+      const ratio = Math.min(distance / 50, 1);
+      const fillEl = document.getElementById('wildfire-distance-bar');
+      fillEl.style.width = `${ratio * 100}%`;
+      document.getElementById('wildfire-distance-label').textContent = `${distance.toFixed(1)} km`;
+      const track = document.getElementById('wildfire-distance-track');
+      if (track) {
+        track.title = `Nearest centroid ${distance.toFixed(1)} km away`;
+      }
+    }
+
+    function renderWindzoneChart(wind) {
+      const barsRoot = document.getElementById('windzone-bars');
+      barsRoot.innerHTML = '';
+      const zones = [
+        { label: 'Zone 1', desc: 'Low reference speeds (<10 m/s)' },
+        { label: 'Zone 2', desc: 'Moderate storm exposure' },
+        { label: 'Zone 3', desc: 'Elevated storm exposure' },
+        { label: 'Zone 4', desc: 'Severe storm band' },
+      ];
+      zones.forEach((zone) => {
+        const row = document.createElement('div');
+        row.className = 'windzone-bar' + (zone.label === wind.zone ? ' active' : '');
+        row.title = zone.label === wind.zone ? wind.zoneNarrative : zone.desc;
+        const primary = document.createElement('span');
+        primary.textContent = zone.label;
+        primary.style.fontWeight = '600';
+        const secondary = document.createElement('span');
+        secondary.style.fontSize = '0.85rem';
+        secondary.style.color = '#cbd5f5';
+        secondary.textContent = zone.label === wind.zone ? wind.zoneNarrative : zone.desc;
+        row.appendChild(primary);
+        row.appendChild(secondary);
+        barsRoot.appendChild(row);
+      });
+
+      const zoneLabel = wind.zone || '–';
+      const zoneDisplay = zoneLabel.replace('Zone ', '');
+      setText('windzone-title', `Wind zone ${zoneDisplay}`);
+    }
+
+    function renderWindrose(roseData) {
+      const svg = document.getElementById('wind-rose-svg');
+      const legend = document.getElementById('wind-rose-legend');
+      const tooltip = document.getElementById('rose-tooltip');
+      if (!svg || !legend || !tooltip) return;
+      svg.innerHTML = '';
+      legend.innerHTML = '';
+      tooltip.style.opacity = 0;
+      if (!roseData || !roseData.length) {
+        return;
+      }
+      const center = 100;
+      const innerR = 25;
+      const maxExtra = 60;
+      const maxValue = roseData.reduce((max, curr) => Math.max(max, curr.value), 1);
+      svg.innerHTML += `<circle cx="${center}" cy="${center}" r="70" stroke="rgba(148,163,184,0.25)" stroke-width="1" fill="none"/>`;
+      svg.innerHTML += `<circle cx="${center}" cy="${center}" r="40" stroke="rgba(148,163,184,0.25)" stroke-width="1" fill="none"/>`;
+      const sweep = (2 * Math.PI) / roseData.length;
+      const polar = (r, angle) => [center + r * Math.cos(angle), center + r * Math.sin(angle)];
+      const rings = [innerR, innerR + maxExtra * 0.5, innerR + maxExtra];
+      rings.forEach((radius, idx) => {
+        const ringValue = ((idx + 1) / rings.length) * maxValue;
+        legend.innerHTML += `<span>${ringValue.toFixed(1)} m/s ring</span>`;
+      });
+      roseData.forEach((entry, idx) => {
+        const start = idx * sweep - Math.PI / 2;
+        const end = start + sweep * 0.9;
+        const outerR = innerR + (entry.value / maxValue) * maxExtra;
+        const [x1, y1] = polar(outerR, start);
+        const [x2, y2] = polar(outerR, end);
+        const [x3, y3] = polar(innerR, end);
+        const [x4, y4] = polar(innerR, start);
+        const largeArc = sweep > Math.PI ? 1 : 0;
+        const path = `
+          M ${x1} ${y1}
+          A ${outerR} ${outerR} 0 ${largeArc} 1 ${x2} ${y2}
+          L ${x3} ${y3}
+          A ${innerR} ${innerR} 0 ${largeArc} 0 ${x4} ${y4}
+          Z
+        `;
+        const opacity = 0.35 + 0.5 * (entry.value / maxValue);
+        const fill = `rgba(56,189,248,${opacity.toFixed(2)})`;
+        const wedge = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        wedge.setAttribute('d', path);
+        wedge.setAttribute('fill', fill);
+        wedge.setAttribute('stroke', 'rgba(14,165,233,0.35)');
+        wedge.setAttribute('stroke-width', '0.5');
+        wedge.addEventListener('mousemove', (event) => {
+          const rect = svg.getBoundingClientRect();
+          tooltip.style.left = `${event.clientX - rect.left}px`;
+          tooltip.style.top = `${event.clientY - rect.top}px`;
+          tooltip.textContent = `${entry.direction}: ${entry.value.toFixed(1)} m/s`;
+          tooltip.style.opacity = 1;
+        });
+        wedge.addEventListener('mouseleave', () => {
+          tooltip.style.opacity = 0;
+        });
+        svg.appendChild(wedge);
+      });
+    }
+
+    function renderSpeedBandsChart(bands) {
+      const axis = document.getElementById('wind-stacked-axis');
+      const barsRoot = document.getElementById('wind-stacked-bars');
+      if (!axis || !barsRoot) return;
+      axis.innerHTML = '';
+      barsRoot.innerHTML = '';
+      if (!bands || !bands.length) return;
+      const ticks = [30, 20, 10, 0];
+      ticks.forEach(value => {
+        const tick = document.createElement('span');
+        tick.textContent = `${value} days`;
+        axis.appendChild(tick);
+      });
+      bands.forEach(entry => {
+        const column = document.createElement('div');
+        column.className = 'stacked-bar';
+        const track = document.createElement('div');
+        track.className = 'stacked-track';
+        entry.segments.forEach(segment => {
+          const span = document.createElement('span');
+          const share = Math.max(segment.percent, 0);
+          span.style.flexGrow = share || 0.01;
+          span.style.minHeight = `${Math.max(share * 180, 1)}px`;
+          span.style.background = segment.color;
+          span.title = `${segment.label} · ${(segment.percent * 30).toFixed(0)} days`;
+          track.appendChild(span);
+        });
+        const label = document.createElement('span');
+        label.className = 'stacked-label';
+        label.textContent = entry.month.toUpperCase();
+        column.appendChild(track);
+        column.appendChild(label);
+        barsRoot.appendChild(column);
+      });
+    }
+
+    function renderWindSummaryCard(wind) {
+      setText('wind-summary-mean', `${wind.mean.toFixed(1)} m/s`);
+      setText('wind-summary-station', `${wind.stationName} · ${wind.span}`);
+      setText('wind-summary-p95', `P95: ${wind.p95.toFixed(1)} m/s`);
+      setText('wind-summary-max', `Max: ${wind.max.toFixed(1)} m/s`);
+      setText('wind-summary-distance', `Reference station ${wind.distanceKm.toFixed(2)} km away`);
+      setText('wind-summary-zone', `${wind.zone || 'Zone ?'} · ${wind.zoneNarrative || ''}`);
+      const flowText = (wind.dominant || []).length ? wind.dominant.join(', ') : 'N/A';
+      setText('wind-summary-flow', `Dominant flow: ${flowText}`);
+      setElementTooltip('wind-summary-mean', `Mean wind speed at station ${wind.stationName}`);
+      setElementTooltip('wind-summary-station', `${wind.stationName} (${wind.span})`);
+      setElementTooltip('wind-summary-distance', `Station is ${wind.distanceKm.toFixed(2)} km away from target`);
+      setElementTooltip('wind-summary-p95', `95th percentile wind speed ${wind.p95.toFixed(1)} m/s`);
+      setElementTooltip('wind-summary-max', `Maximum recorded speed ${wind.max.toFixed(1)} m/s`);
+      setElementTooltip('wind-summary-zone', wind.zoneNarrative || 'Wind zone classification');
+      setElementTooltip('wind-summary-flow', `Dominant flow directions: ${flowText}`);
+      const guidanceLines = [];
+      if (Array.isArray(narratives.wind)) guidanceLines.push(...narratives.wind);
+      if (Array.isArray(narratives.windrose)) guidanceLines.push(...narratives.windrose);
+      renderGuidanceList('wind-summary-guidance', guidanceLines);
+      setText('wind-profile-meta', `${wind.stationName} seasonal profile (${wind.span})`);
+    }
+
+    function renderWildfireSummaryCard(wildfire) {
+      setText('wildfire-summary-level', `Level ${wildfire.riskLevel}`);
+      const displayLabel = translateWildfireLabel(wildfire.riskLabel);
+      setText('wildfire-summary-label', displayLabel || 'Unknown classification');
+      setText('wildfire-summary-distance', `Centroid ${wildfire.distanceKm.toFixed(2)} km away`);
+      setText('wildfire-summary-area', `Cell area ≈ ${(wildfire.areaSqM / 1_000_000).toFixed(1)} km²`);
+      setElementTooltip('wildfire-summary-label', displayLabel || 'Wildfire risk zone');
+      setElementTooltip('wildfire-summary-distance', `Nearest raster centroid ${wildfire.distanceKm.toFixed(2)} km away`);
+      setElementTooltip('wildfire-summary-area', `Raster cell area ${ (wildfire.areaSqM / 1_000_000).toFixed(1)} km²`);
+      const wildfireGuidance = narratives.wildfire ? [narratives.wildfire] : [];
+      renderGuidanceList('wildfire-summary-guidance', wildfireGuidance);
+    }
+
+    const wind = summary.wind;
+    if (wind) {
+      renderWindzoneChart(wind);
+      if (wind.rose) renderWindrose(wind.rose);
+      if (wind.bands) renderSpeedBandsChart(wind.bands);
+      renderWindSummaryCard(wind);
+    } else {
+      renderGuidanceList('wind-summary-guidance', ['Wind dataset unavailable for this coordinate.']);
+      setText('wind-profile-meta', '');
+    }
+
+    const wildfire = summary.wildfire;
+    if (wildfire) {
+      renderWildfireChart(wildfire);
+      renderWildfireSummaryCard(wildfire);
+    } else {
+      renderGuidanceList('wildfire-summary-guidance', ['Wildfire dataset unavailable for this coordinate.']);
+    }
+
+    function renderSeismicCard(seismic) {
+      const card = document.getElementById('seismic-card');
+      const bars = document.getElementById('seismic-bars');
+      const riskLabel = document.getElementById('seismic-risk');
+      const nearestSummary = document.getElementById('seismic-nearest-summary');
+      const nearestNote = document.getElementById('seismic-nearest-note');
+      const context = document.getElementById('seismic-context');
+      if (!card || !bars) return;
+      if (!seismic) {
+        if (riskLabel) riskLabel.textContent = 'Low seismic exposure · insufficient data';
+        if (nearestSummary) nearestSummary.textContent = '–';
+        if (nearestNote) nearestNote.textContent = 'No seismic catalogue available for this coordinate.';
+        if (context) context.textContent = 'Seismic metrics unavailable.';
+        card.style.display = 'block';
+        return;
+      }
+      card.style.display = 'block';
+      bars.innerHTML = '';
+      const maxCount = Math.max(...seismic.bins.map((b) => b.count), 1);
+      seismic.bins.forEach(bin => {
+        const row = document.createElement('div');
+        row.className = 'seismic-bar';
+        const label = document.createElement('span');
+        label.textContent = bin.label;
+        const track = document.createElement('div');
+        track.className = 'seismic-track';
+        const fill = document.createElement('i');
+        fill.style.width = `${(bin.count / maxCount) * 100}%`;
+        track.appendChild(fill);
+        row.appendChild(label);
+        row.appendChild(track);
+        const value = document.createElement('strong');
+        value.textContent = bin.count;
+        row.appendChild(value);
+        bars.appendChild(row);
+      });
+      setText('seismic-nearby', seismic.nearby_count);
+      setText('seismic-recent', seismic.recent_decade);
+      setElementTooltip('seismic-nearby', `${seismic.nearby_count} catalogued events within 250 km`);
+      setElementTooltip('seismic-recent', `${seismic.recent_decade} events recorded in the last decade`);
+      if (context) {
+        context.textContent = `${seismic.nearby_count} events within 250 km · ${seismic.recent_decade} recorded in the last decade.`;
+      }
+      if (seismic.nearest) {
+        const magnitude = Number.isFinite(seismic.nearest.magnitude) ? seismic.nearest.magnitude : null;
+        const distance = Number.isFinite(seismic.nearest.distance_km) ? seismic.nearest.distance_km : null;
+        const parts = [];
+        if (magnitude !== null) parts.push(`${magnitude.toFixed(1)} ML`);
+        if (distance !== null) parts.push(`${distance.toFixed(1)} km`);
+        const summary = parts.length ? parts.join(' · ') : 'Nearest event unavailable';
+        if (nearestSummary) {
+          nearestSummary.textContent = summary;
+          nearestSummary.title = summary;
+        }
+        if (nearestNote) {
+          const dateLabel = seismic.nearest.event_date && seismic.nearest.event_date !== 'NaT' ? seismic.nearest.event_date : 'Unknown date';
+          nearestNote.textContent = `Last nearby GERSEIS event (${dateLabel}): ${seismic.nearest.name || 'Unnamed event'}`;
+        }
+        if (riskLabel && magnitude !== null) {
+          const riskText = magnitude < 4 ? 'Low seismic exposure' : magnitude < 5 ? 'Moderate seismic exposure' : 'Elevated seismic exposure';
+          riskLabel.textContent = riskText;
+        }
+      } else {
+        if (nearestSummary) nearestSummary.textContent = 'No nearby event';
+        if (nearestNote) nearestNote.textContent = 'No catalogued events within 250 km.';
+      }
+    }
+
+    renderSeismicCard(summary.seismic || (data.seismic || null));
+  </script>
+</body>
+</html>
