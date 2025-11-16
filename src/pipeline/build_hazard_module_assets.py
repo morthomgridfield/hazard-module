@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import shutil
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -19,6 +20,7 @@ APP_REPO = Path(
 REPORTING_DIR = APP_REPO / 'backend' / 'data' / 'reporting'
 OUTPUT_DIR = Path(os.environ.get('GF_HAZARD_VIEWER_OUTPUT', Path.cwd() / 'hazard_viewer'))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+ASSETS_DIR = Path(__file__).resolve().parent / 'assets'
 
 WIND_FILE = REPORTING_DIR / 'hazard_wind_dwd_cdc.csv'
 WILDFIRE_FILE = REPORTING_DIR / 'hazard_wildfire_uba.csv'
@@ -327,6 +329,16 @@ def _write_data_js(payload: Dict) -> None:
     print(f"✔️  Wrote {data_js.relative_to(Path.cwd())}")
 
 
+def _copy_static_assets() -> None:
+    if not ASSETS_DIR.exists():
+        return
+    for asset in ASSETS_DIR.iterdir():
+        if not asset.is_file():
+            continue
+        target = OUTPUT_DIR / asset.name
+        shutil.copyfile(asset, target)
+
+
 def _write_map_html() -> None:
     html_path = OUTPUT_DIR / 'hazard_map.html'
     html_template = """<!DOCTYPE html>
@@ -495,6 +507,24 @@ def _write_location_html() -> None:
   <title>Gridfield · Hazard Snapshot</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
+    @font-face {
+      font-family: 'Geist';
+      src: url('https://cdn.jsdelivr.net/npm/geist@1.5.1/dist/fonts/Geist-Light.woff2') format('woff2');
+      font-weight: 300;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Geist';
+      src: url('https://cdn.jsdelivr.net/npm/geist@1.5.1/dist/fonts/Geist-Regular.woff2') format('woff2');
+      font-weight: 400;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Geist';
+      src: url('https://cdn.jsdelivr.net/npm/geist@1.5.1/dist/fonts/Geist-Medium.woff2') format('woff2');
+      font-weight: 500;
+      font-display: swap;
+    }
     * { box-sizing: border-box; }
     body { margin: 0; background: radial-gradient(circle at top, #03111f, #02060f 55%); color: #e2e8f0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     .shell { width: min(1320px, 100%); margin: 0 auto; padding: 48px 32px 72px; display: flex; flex-direction: column; gap: 36px; }
@@ -599,30 +629,60 @@ def _write_location_html() -> None:
     }
     /* Light theme overrides */
     body { background: #f5f5f5; color: #0f0f19; font-family: 'Geist', 'Inter', 'Segoe UI', sans-serif; }
-    .shell { background: #ffffff; border-radius: 36px; border: 1px solid #e4e4e7; box-shadow: 0 40px 120px rgba(15,15,25,0.15); }
-    .viz-card, .block, .summary-card, .band, .windzone-bar, .seismic-card { background: #ffffff; border: 1px solid #e4e4e7; box-shadow: 0 12px 30px rgba(15,15,25,0.08); color: #0f0f19; }
-    .summary-card .summary-main p, .summary-card .summary-guidance p, .summary-list li, .guidance-list li { color: #4a4a4a; }
-    .pill { border-color: rgba(0,0,0,0.08); color: #0f0f19; }
+    body { margin: 0; background: #f5f5f5; color: #0f0f19; font-family: 'Geist', 'Inter', 'Segoe UI', sans-serif; padding: 48px 24px; }
+    .shell { width: min(1280px, 100%); margin: 0 auto; background: #ffffff; border-radius: 40px; border: 1px solid #ececf1; box-shadow: 0 40px 120px rgba(15,15,25,0.12); padding-bottom: 56px; }
+    .intro { padding: 48px 56px 32px; border-bottom: 1px solid #ececf1; display: flex; flex-direction: column; gap: 18px; }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .brand__symbol { width: 48px; height: 48px; border-radius: 18px; border: 1px solid #e4e4e7; background: #f9f9fb; display: inline-flex; align-items: center; justify-content: center; }
+    .brand__symbol img { width: 24px; height: auto; }
+    .brand__eyebrow { margin: 0; font-size: 10px; letter-spacing: 0.45em; text-transform: uppercase; color: #8a8b99; }
+    .brand__tagline { margin: 2px 0 0; font-size: 14px; color: #0f0f19; }
+    .intro__copy { display: flex; flex-direction: column; gap: 10px; }
+    .pill { border-color: rgba(0,0,0,0.08); color: #5a5b6c; letter-spacing: 0.35em; text-transform: uppercase; background: #f9f9fb; }
     h1, h3, h4 { color: #0f0f19; }
-    .bands .band { background: #f9f9fb; }
-    .wind-rose { background: radial-gradient(circle at center, #f8fafc 50%, #eef2ff 100%); box-shadow: inset 0 0 25px rgba(15,15,25,0.2); }
-    .distance-track { background: #ececec; }
-    .distance-fill { background: linear-gradient(90deg, #0ea5e9, #6366f1); }
+    .location-meta { margin: 0; color: #5a5b6c; font-size: 15px; }
+    .content { padding: 40px 56px 56px; }
+    .columns { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 28px; }
+    @media (max-width: 1024px) { body { padding: 24px 12px; } .shell { padding-bottom: 32px; } .intro { padding: 32px 24px; } .content { padding: 28px 24px 40px; } .columns { grid-template-columns: 1fr; } }
+    .viz-column, .info-column { display: flex; flex-direction: column; gap: 24px; }
+    .viz-card, .block, .summary-card, .band, .windzone-bar, .seismic-card { background: #ffffff; border: 1px solid #ececf1; border-radius: 28px; padding: 24px; box-shadow: 0 25px 80px rgba(15,15,25,0.08); color: #0f0f19; }
+    .summary-card .summary-main p, .summary-card .summary-guidance p, .summary-list li, .guidance-list li { color: #4a4a4a; }
+    .bands .band { background: #f9f9fb; border: 1px solid #ececf1; }
+    .band-label { color: #5a5b6c; }
+    .band-bar { background: #ececf1; }
+    .distance-track { background: #f1f1f4; }
+    .distance-fill { background: linear-gradient(90deg, #111827, #374151); }
     .windzone-bar span { color: #4a4a4a; }
+    .wind-rose { background: radial-gradient(circle at center, #ffffff 55%, #f4f4f8 100%); box-shadow: inset 0 0 25px rgba(15,15,25,0.1); border: 1px solid #ececf1; }
+    .wind-stacked-chart { border-radius: 24px; padding: 16px 24px; background: #f9f9fb; border: 1px solid #ececf1; }
+    canvas { background: #ffffff; border: 1px solid #ececf1; }
+    .wind-legend span { color: #5a5b6c; font-size: 12px; }
     .seismic-card { color: #0f0f19; }
-    .seismic-kpi .label { color: #8a8b99; }
-    .seismic-kpi .value { color: #0f0f19; }
+    .seismic-kpi .label { color: #8a8b99; letter-spacing: 0.35em; text-transform: uppercase; font-size: 11px; }
+    .seismic-kpi .value { color: #0f0f19; font-size: 26px; font-weight: 500; }
   </style>
 </head>
 <body>
   <section class="shell">
     <div class="intro">
-      <p class="pill">gridfield hazard module</p>
-      <h1 id="location-title">Hazard snapshot</h1>
-      <p class="location-meta" id="location-meta">Awaiting coordinates…</p>
+      <div class="brand">
+        <span class="brand__symbol">
+          <img src="logo-symbol-black.png" alt="gridfield symbol" />
+        </span>
+        <div>
+          <p class="brand__eyebrow">gridfield</p>
+          <p class="brand__tagline">Hazard intelligence snapshot</p>
+        </div>
+      </div>
+      <div class="intro__copy">
+        <p class="pill">Shareable hazard module</p>
+        <h1 id="location-title">Hazard snapshot</h1>
+        <p class="location-meta" id="location-meta">Awaiting coordinates…</p>
+      </div>
     </div>
 
-    <div class="columns">
+    <div class="content">
+      <div class="columns">
       <div class="viz-column">
         <div class="viz-card" id="wildfire-visual">
           <div class="viz-card-head">
@@ -735,6 +795,7 @@ def _write_location_html() -> None:
           <p class="seismic-context" id="seismic-context"></p>
           <p class="seismic-footnote" id="seismic-nearest-note">Awaiting seismic catalogue…</p>
         </div>
+      </div>
       </div>
     </div>
   </section>
@@ -1115,6 +1176,7 @@ def main() -> None:
     _write_data_js(payload)
     _write_map_html()
     _write_location_html()
+    _copy_static_assets()
 
 
 if __name__ == '__main__':
